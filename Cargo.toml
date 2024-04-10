@@ -3,9 +3,44 @@ name = "zero2prod"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "zero2prod"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [target.aarch64-apple-darwin]
 rustflags = ["-C", "link-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld"]
 
 [dependencies]
+# We need the optional `derive` feature to use `serde`'s procedural macros:
+# `#[deserialize(Serialize)]` and `#[deserialize(Deserialize)]`
+# The feature is ont enabled by default to avaid pulling in
+# unnecessary dependencies for projects that do not need it.
+serde = { version = "1", features = ["derive"] }
+actix-web = "4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+config = "0.13"
 
+# Using table-like toml syntax to avoid a super-long line!
+[dependencies.sqlx]
+version = "0.7"
+default-features = false
+features = [
+    "runtime-tokio-rustls",
+    "macros",
+    "postgres",
+    "uuid",
+    "chrono",
+    "migrate",
+]
+
+
+# Dev dependenciest are used exclusively when runnings tests or examples
+# They do not get included in the final application binary!
+
+
+[dev-dependencies]
+reqwest = "0.11"
