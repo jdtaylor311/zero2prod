@@ -1,9 +1,10 @@
 //! src/main.rs
 use sqlx::PgPool;
 use std::net::TcpListener;
+use secrecy::ExposeSecret;
 use zero2prod::configuration::get_configuration;
-use zero2prod::telemetry::*;
 use zero2prod::startup::run;
+use zero2prod::telemetry::*;
 
 /// It should only be called once!
 
@@ -13,7 +14,7 @@ async fn main() -> Result<(), std::io::Error> {
     init_subscriber(subscriber);
     // Panic if we can't read configuration
     let configuration = get_configuration().expect("Failed to read configuration file.");
-    let connection_pool = PgPool::connect(&configuration.database.connection_string())
+    let connection_pool = PgPool::connect(&configuration.database.connection_string().expose_secret())
         .await
         .expect("Failed to connect to Postgres");
     //We have removed the hardcoded `8000` -its now coming from our settings! Woohoo!
