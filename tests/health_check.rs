@@ -6,16 +6,71 @@
 // You can inspect what code gets generated using
 // `cargo expand --test health_check` (<- name of the test file)
 
-use sqlx::{Connection, PgConnection};
+use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
-use zero2prod::configuration::get_configuration;
+use uuid::Uuid;
+use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::run;
+
+pub struct TestApp {
+    pub address: String,
+    pub db_pool: PgPool,
+}
+
+//Launch our application in the backgroud ~somehow~
+async fn spawn_app() -> TestApp {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
+    let port = listener.local_addr().unwrap().port();
+    let address = format!("http://127.0.0.1:{}", port);
+
+    let mut configuration = get_configuration().expect("Failed to read configuration.");
+    configuration.database.database_name = Uuid::new_v4().to_string();
+    let connection_pool = configure_database(&configuration.database).await;
+    // No .await call, therefore no need for `spawn_app` to be async now.
+    // We are also running tests, so it is not worth it to propogate errors:
+    // if we fail to perform the required setup we can just panic and crash
+    // all the things
+    let server = run(listener, connection_pool.clone()).expect("Failed to bind address");
+
+    // Launch the server as a backgroud task
+    // tokio::spawn returns a handle to the spawned future,
+    // but we have no use for it here, hence the non-binding let
+    let _ = tokio::spawn(server);
+    //We return the application address to the caller!
+    TestApp {
+        address,
+        db_pool: connection_pool,
+    }
+}
+pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    //Create database
+    let mut connection = PgConnection::connect(&config.connection_string_without_db())
+        .await
+        .expect("Failed to connect to Postgres");
+
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await
+        .expect("Failed to create database");
+
+    //Migrate database
+    let connection_pool = PgPool::connect(&config.connection_string())
+        .await
+        .expect("Failed to connect to Postgres.");
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .expect("Failed to migrate the database");
+
+    connection_pool
+}
+
 #[tokio::test]
 async fn health_check_works() {
     //Arrange
 
     //No .await is neccessary here.
-    let address = spawn_app();
+    let app = spawn_app().await;
 
     //We need to bring in `reqwest`
     //to perform HTTP requests againts our application.
@@ -23,7 +78,7 @@ async fn health_check_works() {
 
     //Act
     let response = client
-        .get(&format!("{}/health_check", &address))
+        .get(&format!("{}/health_check", app.address))
         .send()
         .await
         .expect("Failed to execute requests");
@@ -33,42 +88,17 @@ async fn health_check_works() {
     assert_eq!(Some(0), response.content_length());
 }
 
-//Launch our application in the backgroud ~somehow~
-fn spawn_app() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
-    let port = listener.local_addr().unwrap().port();
-    // No .await call, therefore no need for `spawn_app` to be async now.
-    // We are also running tests, so it is not worth it to propogate errors:
-    // if we fail to perform the required setup we can just panic and crash
-    // all the things
-    let server = run(listener).expect("Failed to bind address");
-
-    // Launch the server as a backgroud task
-    // tokio::spawn returns a handle to the spawned future,
-    // but we have no use for it here, hence the non-binding let
-    let _ = tokio::spawn(server);
-    //We return the application address to the caller!
-    format!("http://127.0.0.1:{}", port)
-}
-
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     // Arrange
-    let app_address = spawn_app();
-    let configuration = get_configuration().expect("Failed to read configuration.");
-    let connection_string = configuration.database.connection_string();
+    let app = spawn_app().await;
 
-    //The `Connection` trait MUST be in scope for us to invoke
-    //`PgConnection::connect` - it is not an inherent method of the struct!
-    let mut connection = PgConnection::connect(&connection_string)
-        .await
-        .expect("Failed to connect to Postgres.");
     let client = reqwest::Client::new();
 
     // Act
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client
-        .post(&format!("{}/subscribe", &app_address))
+        .post(&format!("{}/subscribe", &app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -79,17 +109,17 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
     assert_eq!(200, response.status().as_u16());
 
     let saved = sqlx::query!("SELECT email, name FROM subscription")
-        .fetch_one(&mut connection)
+        .fetch_one(&app.db_pool)
         .await
         .expect("Failed to fetch saved subscription.");
 
-    assert_eq!(saved.email, "urusula_le_guin@gmail.com");
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
     assert_eq!(saved.name, "le guin");
 }
 #[tokio::test]
 async fn subscribe_returns_a_400_for_invalid_form_data() {
     // Arrange
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
     let test_cases = vec![
         ("name=le%20guin", "missing the email"),
@@ -99,7 +129,7 @@ async fn subscribe_returns_a_400_for_invalid_form_data() {
     // Act
     for (invalid_body, error_message) in test_cases {
         let response = client
-            .post(&format!("{}/subscribe", &app_address))
+            .post(&format!("{}/subscribe", &app.address))
             .header("Content-Type", "application/x-www-form-urlencaded")
             .body(invalid_body)
             .send()
