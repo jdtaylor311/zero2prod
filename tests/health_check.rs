@@ -10,7 +10,9 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
+use zero2prod::telemetry::*;
 use zero2prod::startup::run;
+use once_cell::sync::Lazy;
 
 pub struct TestApp {
     pub address: String,
@@ -19,6 +21,8 @@ pub struct TestApp {
 
 //Launch our application in the backgroud ~somehow~
 async fn spawn_app() -> TestApp {
+    let subscriber = get_subscriber("test".into(), "info".into());
+    init_subscriber(subscriber);
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
