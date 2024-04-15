@@ -6,13 +6,19 @@
 // You can inspect what code gets generated using
 // `cargo expand --test health_check` (<- name of the test file)
 
+use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
-use zero2prod::telemetry::*;
 use zero2prod::startup::run;
-use once_cell::sync::Lazy;
+use zero2prod::telemetry::*;
+
+//Ensure that the `tracing` stack is only initialised once using `once_cell`
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let subscriber = get_subscriber("test".into(), "debug".into());
+    init_subscriber(subscriber);
+});
 
 pub struct TestApp {
     pub address: String,
@@ -21,8 +27,9 @@ pub struct TestApp {
 
 //Launch our application in the backgroud ~somehow~
 async fn spawn_app() -> TestApp {
-    let subscriber = get_subscriber("test".into(), "info".into());
-    init_subscriber(subscriber);
+    // The first time `initilaze` is invoked the code in `TRACING` is executed.
+    // All other invocations will instead skip execution.
+    Lazy::force(&TRACING);
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
