@@ -14,8 +14,7 @@ async fn main() -> Result<(), std::io::Error> {
     init_subscriber(subscriber);
     // Panic if we can't read configuration
     let configuration = get_configuration().expect("Failed to read configuration file.");
-    let connection_pool = PgPool::connect(&configuration.database.connection_string().expose_secret())
-        .await
+    let connection_pool = PgPool::connect_lazy(&configuration.database.connection_string().expose_secret())
         .expect("Failed to connect to Postgres");
     //We have removed the hardcoded `8000` -its now coming from our settings! Woohoo!
     let address = format!("127.0.0.1:{}", configuration.application_port);
