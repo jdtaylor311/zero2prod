@@ -1,0 +1,64 @@
+#! spec.yaml
+name: zero2prod
+# Check https://www.digitalocean.com/docs/app-platform/#regional-availability
+# for a list of all available options
+# You can get region slugs from
+# https://www.digitalocean.com/docs/platform/availability-matrix/
+# They must specified lowercased.
+# `fra` stands for Frankfurt (Germany - EU)
+region: nyc3
+services:
+  - name: zero2prod
+    #Relative to the repo root
+    dockerfile_path: Dockerfile
+    source_dir: .
+    github:
+      # Depending on when you created the repo
+      # the defualt branch on Github might have been named `master`
+      branch: main
+      #Deploy a new version every commit to `main`!
+      #Continuous Deployment here we come!
+      deploy_on_push: true
+      # Fill in with github details
+      repo: jdtaylor311/zero2prod
+    # Active probe used by DigitalOcean's to ensure our application is healthy
+    health_check:
+      # The path to our health check endpoint!
+      # It turned out to be useful in the end!
+      http_path: /health_check
+    # The port the application will be listerening on for incoming requests
+    # It should match what we specified in our configuration/production.yaml
+    http_port: 8000
+    # For production workloads wed go for at least two
+    # But lets try to keep the bill under control for now....
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    # All incoming requests should be routed to our app
+    routes:
+      - path: /
+    envs:
+      - key: APP_DATABASE__USERNAME
+        scope: RUN_TIME
+        value: ${newsletter.USERNAME}
+      - key: APP_DATABASE__PASSWORD
+        scope: RUN_TIME
+        value: ${newsletter.PASSWORD}
+      - key: APP_DATABASE__HOST
+        scope: RUN_TIME
+        value: ${newsletter.HOSTNAME}
+      - key: APP_DATABASE__PORT
+        scope: RUN_TIME
+        value: ${newsletter.PORT}
+      - key: APP_DATABASE__DATABASE_NAME
+        scope: RUN_TIME
+        value: ${newsletter.DATABASE}
+databases:
+  # PG = Postgres
+  - engine: PG
+    # Database name
+    name: newsletter
+    # Again, let's keep the bill lean
+    num_nodes: 1
+    size: db-s-dev-database
+    # Postgres version
+    version: "12"
