@@ -3,8 +3,8 @@
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use sqlx::PgPool;
-use uuid::Uuid;
 use std::convert::{TryFrom, TryInto};
+use uuid::Uuid;
 
 use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
 
@@ -22,7 +22,6 @@ impl TryFrom<FormData> for NewSubscriber {
         let email = SubscriberEmail::parse(value.email)?;
         Ok(Self { email, name })
     }
-
 }
 #[allow(clippy::async_yields_async)]
 #[tracing::instrument(

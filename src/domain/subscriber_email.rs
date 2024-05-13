@@ -1,6 +1,6 @@
 //! src/domain/subscriber_email.rs
 use validator::validate_email;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubscriberEmail(String);
 
 impl SubscriberEmail {
@@ -23,11 +23,10 @@ impl AsRef<str> for SubscriberEmail {
 
 #[cfg(test)]
 mod tests {
-    use claims::assert_err;
     use super::SubscriberEmail;
+    use claims::assert_err;
     use fake::faker::internet::en::SafeEmail;
     use fake::Fake;
-
 
     //Both `Clone` and `Debug` are required by `quickcheck`
     #[derive(Debug, Clone)]
