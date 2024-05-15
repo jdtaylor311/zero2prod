@@ -8,13 +8,13 @@ if ! [ -x "$(command -v psql)" ]; then
 	exit 1
 fi
 
-if ! [ -x "$(command -v sqlx)"]; then
+if ! [ -x "$(command -v sqlx)" ]; then
 	echo >&2 "Error: sqlx is not installed."
 	echo >&2 "Use cargo install --version='~0.7' sqlx-cli --no-default-features --features rustlt,postgres"
 	exit 1
 fi
 
-# Check if a custome user has been set, otherwile default to 'postgres'
+# Check if a custom user has been set, otherwile default to 'postgres'
 DB_USER="${POSTGRES_USER:=postgres}"
 # Check if a custom password has been set, otherwise default to 'password'
 DB_PASSWORD="${POSTGRES_PASSWORD:=password}"
@@ -42,10 +42,9 @@ fi
 # Keep pinging Postgres until it's ready to accept commands
 export PGPASSWORD="$DB_PASSWORD"
 until
-	psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "postgres" -c
-	'\q'
+	psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "postgres" -c '\q'
 do
-	>&2 echo "Postgres is still unavailabel - sleeping"
+	>&2 echo "Postgres is still unavailable - sleeping"
 	sleep 1
 done
 
