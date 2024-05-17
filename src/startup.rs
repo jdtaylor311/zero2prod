@@ -65,7 +65,8 @@ pub fn run(
             // Middlewares are added using the `wrap` method on `App`
             .wrap(TracingLogger::default())
             .route("/health_check", web::get().to(health_check))
-            .route("/subscribe", web::post().to(subscribe))
+            .route("/subscriptions", web::post().to(subscribe))
+            .route("/subscriptions/confirm", web::get().to(confirm))
             // Get a pointer copy and attach it to the application state
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
