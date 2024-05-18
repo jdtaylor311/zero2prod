@@ -14,7 +14,7 @@ services:
     source_dir: .
     github:
       # Depending on when you created the repo
-      # the defualt branch on Github might have been named `master`
+      # the default branch on Github might have been named `master`
       branch: main
       #Deploy a new version every commit to `main`!
       #Continuous Deployment here we come!
@@ -52,6 +52,9 @@ services:
       - key: APP_DATABASE__DATABASE_NAME
         scope: RUN_TIME
         value: ${newsletter.DATABASE}
+      - key: APP_DATABASE__BASE_URL
+        scope: RUN_TIME
+        value: ${BASE_URL}
 databases:
   # PG = Postgres
   - engine: PG

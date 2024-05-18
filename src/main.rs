@@ -1,6 +1,6 @@
 //! src/main.rs
 use zero2prod::configuration::get_configuration;
-use zero2prod::startup::build;
+use zero2prod::startup::Application;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 /// It should only be called once!
@@ -14,7 +14,7 @@ async fn main() -> Result<(), std::io::Error> {
     // Panic if we can't read configuration
     let configuration = get_configuration().expect("Failed to read configuration file.");
 
-    let server = build(configuration).await?;
+    let server = Application::build(configuration.clone());
     server.await?;
     Ok(())
 }

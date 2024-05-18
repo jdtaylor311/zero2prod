@@ -1,12 +1,11 @@
 //! tests/api/helepers.rs
-
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::get_connection_pool;
-use zero2prod::startup::Applicition;
+use zero2prod::startup::Application;
 use zero2prod::telemetry::*;
 
 //Launch our application in the background ~somehow~
@@ -26,21 +25,24 @@ pub async fn spawn_app() -> TestApp {
     };
     configure_database(&config.database).await;
 
-    let app = Applicition::build(config.clone())
+    let app = Application::build(config.clone())
         .await
         .expect("Failed to build application.");
 
+    let application_port = app.port();
     let address = format!("http://127.0.0.1:{}", app.port());
     tokio::spawn(app.run_until_stopped());
 
     TestApp {
         address,
+        port: application_port,
         db_pool: get_connection_pool(&config.database),
         email_server,
     }
 }
 
 pub struct TestApp {
+    pub port: u16,
     pub address: String,
     pub db_pool: PgPool,
     pub email_server: MockServer,
@@ -48,8 +50,9 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
+        let url = &format!("{}/subscriptions", &self.address);
         reqwest::Client::new()
-            .post(&format!("{}/subscriptions", &self.address))
+            .post(url)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
             .send()
