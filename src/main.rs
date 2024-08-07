@@ -13,8 +13,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     // Panic if we can't read configuration
     let configuration = get_configuration().expect("Failed to read configuration file.");
-
-    let server = Application::build(configuration.clone());
-    server.await?;
+    let applicatication = Application::build(configuration).await?;
+    applicatication.run_until_stopped().await?;
     Ok(())
 }
